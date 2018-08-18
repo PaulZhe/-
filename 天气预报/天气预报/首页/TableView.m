@@ -11,7 +11,11 @@
 #import "TableViewCell2.h"
 #import "Weather.h"
 
-@implementation TableView
+@implementation TableView{
+    BOOL tableViewModel;
+    BOOL scrollViewModel;
+    UIScrollView *scrollView;
+}
 
 - (instancetype)initWithFrame:(CGRect)frame{
     if(self = [super initWithFrame:frame]){
@@ -134,11 +138,13 @@
     NSURLSessionDataTask *dataTask2;
     
     dataTask2 = [session2 dataTaskWithRequest:request2 completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-        
+        self->scrollViewModel = YES;
         NSDictionary *dic = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableLeaves error:nil];
         
         NSString *str = [[NSString alloc] init];
-
+        
+        self.timeArray = [NSMutableArray array];
+        
         for (int i = 0; i < 24; i++) {
             str = [[[dic objectForKey:@"result"] objectForKey:@"hourly"][i] objectForKey:@"time"];
             [self.timeArray addObject:str];
@@ -149,17 +155,19 @@
         }
         
         dispatch_async(dispatch_get_main_queue(), ^{
-            if(self.tableView == nil){
-                self.tableView = [[UITableView alloc] initWithFrame:CGRectMake(0, 0, 414, 672) style:UITableViewStyleGrouped];
-                //注册自定义cell
-                [self.tableView registerClass:[TableViewCell1 class] forCellReuseIdentifier:@"cell2"];
-                [self.tableView registerClass:[TableViewCell2 class] forCellReuseIdentifier:@"cell4"];
-                
-                self.tableView.delegate = self;
-                self.tableView.dataSource = self;
-                self.tableView.backgroundColor = [UIColor clearColor];
-                [self addSubview:self.tableView];
-            }
+            [self tableView];
+            [self->_tableView reloadData];
+//            if(self.tableView == nil){
+//                self.tableView = [[UITableView alloc] initWithFrame:CGRectMake(0, 0, 414, 672) style:UITableViewStyleGrouped];
+//                //注册自定义cell
+//                [self.tableView registerClass:[TableViewCell1 class] forCellReuseIdentifier:@"cell2"];
+//                [self.tableView registerClass:[TableViewCell2 class] forCellReuseIdentifier:@"cell4"];
+//
+//                self.tableView.delegate = self;
+//                self.tableView.dataSource = self;
+//                self.tableView.backgroundColor = [UIColor clearColor];
+//                [self addSubview:self.tableView];
+//            }
         });
     }];
     [dataTask2 resume];
@@ -176,7 +184,7 @@
     request.HTTPMethod = @"POST";
     
     self.dataTask = [session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-        
+        self->tableViewModel = YES;
         NSDictionary *dic = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableLeaves error:nil];
         
         NSString *str = [[NSString alloc] init];
@@ -255,11 +263,28 @@
         NSString *str2 = [NSString stringWithFormat:@"%@百帕",self.pres];
         self.array4 = [[NSArray alloc] initWithObjects:self.ss, self.hum, self.fl, str2, self.uv_index, nil];
         
-        
-        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self tableView];
+            [self->_tableView reloadData];
+        });
     }];
     [_dataTask resume];
     
+}
+
+-(UITableView *)tableView{
+    if (!_tableView) {
+        _tableView = [[UITableView alloc] initWithFrame:CGRectMake(0, 0, 414, 672) style:UITableViewStyleGrouped];
+        //注册自定义cell
+        [_tableView registerClass:[TableViewCell1 class] forCellReuseIdentifier:@"cell2"];
+        [_tableView registerClass:[TableViewCell2 class] forCellReuseIdentifier:@"cell4"];
+        
+        _tableView.delegate = self;
+        _tableView.dataSource = self;
+        _tableView.backgroundColor = [UIColor clearColor];
+        [self addSubview:_tableView];
+    }
+    return _tableView;
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
@@ -358,7 +383,7 @@
         UITableViewCell *cell1 = [tableView dequeueReusableCellWithIdentifier:@"cell1"];
         if(cell1 == nil){
             cell1 = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"cell1"];
-            UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 414, 153)];
+            scrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 414, 153)];
             scrollView.contentSize = CGSizeMake(90*24, 0);
             scrollView.bounces = NO;
             scrollView.backgroundColor = [UIColor clearColor];
@@ -366,13 +391,28 @@
             cell1.contentView.backgroundColor = [UIColor clearColor];
             for (int i = 0; i < 24; i++) {
                 Weather *weatherView = [[Weather alloc] initWithFrame:CGRectMake(90*i, 0, 90, 153)];
-                weatherView.label.text = self.timeArray[i];
-                UIImage *image = [UIImage imageNamed:self.weatherArray[i]];
-                weatherView.imageView.image = image;
-                weatherView.label1.text = self.tmpArray[i];
+                weatherView.tag = i;
+//                weatherView.label.text = self.timeArray[i];
+//                UIImage *image = [UIImage imageNamed:self.weatherArray[i]];
+//                weatherView.imageView.image = image;
+//                weatherView.label1.text = self.tmpArray[i];
                 [scrollView addSubview:weatherView];
             }
             [cell1.contentView addSubview:scrollView];
+        }
+        if (scrollViewModel != YES) {
+            return cell1;
+        }
+        int i = 0;
+        for (Weather *weatherView in [scrollView subviews]) {
+            if (i > 23) {
+                break;
+            }
+            weatherView.label.text = self.timeArray[weatherView.tag];
+            UIImage *image = [UIImage imageNamed:self.weatherArray[weatherView.tag]];
+            weatherView.imageView.image = image;
+            weatherView.label1.text = self.tmpArray[weatherView.tag];
+            i++;
         }
         return cell1;
     } else if(indexPath.section == 2){
